@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crononautas: Academia del Tiempo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Quicksand:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold-light: #f1dfad;
+            --gold-main: #d4af37;
+            --gold-dark: #b8860b;
+            --white-pure: #ffffff;
+            --soft-gold-shadow: rgba(212, 175, 55, 0.1);
+            --correct-green: #22c55e;
+            --incorrect-red: #ef4444;
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: var(--white-pure);
+            background-image: radial-gradient(circle at center, var(--white-pure) 0%, #f9f9f9 100%);
+            color: #333;
+            overflow: hidden; 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Cinzel', serif;
+            color: var(--gold-dark);
+        }
+
+        .glass-panel {
+            background: var(--white-pure);
+            border: 1px solid var(--gold-light);
+            box-shadow: 0 10px 30px var(--soft-gold-shadow);
+        }
+
+        .animate-pop {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold-main), var(--gold-dark));
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 9999px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1rem;
+        }
+
+        .option-btn {
+            transition: all 0.2s ease;
+            border: 1px solid #eee;
+            background-color: var(--white-pure);
+            cursor: pointer;
+            color: #444;
+            padding: 1rem;
+            border-radius: 1rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        .option-btn:hover {
+            border-color: var(--gold-main);
+            background-color: #fffef9;
+            box-shadow: 0 4px 10px var(--soft-gold-shadow);
+        }
+
+        #game-progress {
+            background: linear-gradient(to right, var(--gold-light), var(--gold-main));
+        }
+
+        input {
+            background-color: var(--white-pure);
+            border: 1px solid #e5e7eb;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- MOTOR DE AUDIO -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="https://archive.org/download/RaidersMarch/RaidersMarch.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-correct" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="sfx-wrong" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-falling-on-wooden-floor-2182.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Pantalla de Inicio -->
+    <div id="screen-auth" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-white">
+        <div class="max-w-sm w-full glass-panel p-8 rounded-[2rem] text-center animate-pop">
+            <div class="mb-4 inline-block p-4 rounded-full bg-white border border-gold-light">
+                <span class="text-4xl">🤠</span>
+            </div>
+            <h1 class="text-2xl font-bold mb-1">Crononautas</h1>
+            <p class="text-stone-400 mb-6 text-[10px] uppercase tracking-widest">Academia de Historia</p>
+            <div class="space-y-3">
+                <input id="user-name" type="text" placeholder="Tu Nombre" class="w-full">
+                <input id="user-lastname" type="text" placeholder="Tu Apellido" class="w-full">
+                <button id="btn-start" class="btn-primary w-full mt-2">¡Empezar Aventura!</button>
+            </div>
+            <p class="mt-4 text-[11px] text-stone-600 font-bold">La música sonará al iniciar</p>
+        </div>
+    </div>
+
+    <!-- Feedback Visual -->
+    <div id="fullscreen-feedback" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center text-white text-center p-6 transition-all duration-300">
+        <div id="feedback-icon" class="text-[12rem] mb-4 animate-pop leading-none"></div>
+        <h2 id="feedback-title" class="text-7xl font-black uppercase tracking-[0.2em] drop-shadow-2xl"></h2>
+    </div>
+
+    <!-- Navegación -->
+    <nav class="px-6 py-2 flex justify-between items-center bg-white/95 backdrop-blur-md border-b border-gray-100 h-14">
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 bg-gradient-to-br from-gold-main to-gold-dark rounded-full flex items-center justify-center text-white text-[10px] font-bold">C</div>
+            <span id="nav-user" class="font-bold text-stone-700 tracking-wider uppercase text-[10px]">Visitante</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col items-end">
+                <span class="text-[8px] uppercase font-bold text-stone-400 leading-none">Puntos</span>
+                <span id="score-display" class="text-lg font-bold text-gold-main leading-none">0</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Juego Principal -->
+    <main id="game-main" class="flex-grow flex flex-col max-w-3xl mx-auto w-full p-4 overflow-hidden hidden">
+        <div id="game-ui-header" class="mb-4">
+            <div class="flex justify-between items-end mb-1">
+                <h2 id="current-era-title" class="text-xl font-bold">Era</h2>
+                <span class="text-[10px] text-stone-400 font-bold uppercase" id="progress-text">0/15</span>
+            </div>
+            <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                <div id="game-progress" class="h-full transition-all duration-700" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div id="quiz-container" class="bg-white p-6 rounded-[2rem] shadow-lg border border-gray-50 flex-grow flex flex-col justify-center animate-pop">
+            <div id="quiz-content">
+                <h3 id="question-text" class="text-lg md:text-xl font-bold mb-6 leading-tight text-stone-800 tracking-tight text-center">Cargando...</h3>
+                <div id="options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal de Victoria -->
+    <div id="victory-modal" class="fixed inset-0 z-[70] bg-white/95 hidden items-center justify-center p-4">
+        <div class="bg-white max-w-md w-full rounded-[2rem] overflow-hidden shadow-2xl text-center border border-gold-light p-10 animate-pop">
+            <div class="text-6xl mb-6">🏆</div>
+            <h2 class="text-3xl font-bold text-gold-dark mb-2">¡Misión Cumplida!</h2>
+            <div class="my-6">
+                <p class="text-stone-400 uppercase text-[10px] font-black tracking-widest">Puntuación Final</p>
+                <p id="final-score-value" class="text-5xl font-bold text-stone-800">0</p>
+            </div>
+            <button onclick="window.repeatSurvey()" class="btn-primary w-full py-4 shadow-lg text-lg">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script type="module">
+        let score = 0;
+        let currentQuestionIndex = 0;
+        let randomizedQuestions = [];
+        let audioUnlocked = false;
+
+        const music = document.getElementById('bg-music');
+        const sfxCorrect = document.getElementById('sfx-correct');
+        const sfxWrong = document.getElementById('sfx-wrong');
+
+        const startAdventureMusic = () => {
+            if (audioUnlocked) return;
+            music.volume = 0.4;
+            music.play().then(() => {
+                audioUnlocked = true;
+            }).catch(() => {});
+        };
+
+        document.addEventListener('click', startAdventureMusic, { once: true });
+
+        const questionsPool = [
+            { era: "Precámbrico", q: "¿Cómo era la Tierra al inicio?", opts: ["Fría y helada", "Bola de fuego", "Llena de selvas", "Solo agua"], correctText: "Bola de fuego" },
+            { era: "Precámbrico", q: "¿Qué vida apareció primero?", opts: ["Peces", "Bacterias", "Plantas", "Insectos"], correctText: "Bacterias" },
+            { era: "Precámbrico", q: "¿Dónde surgió la vida?", opts: ["En volcanes", "En los océanos", "En el aire", "En desiertos"], correctText: "En los océanos" },
+            { era: "Paleozoico", q: "¿Qué animal dominó el mar?", opts: ["Tiburones", "Trilobites", "Ballenas", "Medusas"], correctText: "Trilobites" },
+            { era: "Paleozoico", q: "¿Qué plantas aparecieron?", opts: ["Flores", "Helechos", "Pinos", "Cactus"], correctText: "Helechos" },
+            { era: "Paleozoico", q: "¿Cómo se llama el supercontinente?", opts: ["Atlántida", "Pangea", "Eurasia", "América"], correctText: "Pangea" },
+            { era: "Mesozoico", q: "¿Quiénes dominaron la tierra?", opts: ["Mamíferos", "Dinosaurios", "Humanos", "Aves"], correctText: "Dinosaurios" },
+            { era: "Mesozoico", q: "¿Qué animal volador surgió?", opts: ["Águilas", "Pterosaurios", "Murciélagos", "Drones"], correctText: "Pterosaurios" },
+            { era: "Mesozoico", q: "¿Qué extinguió a los dinosaurios?", opts: ["Inundación", "Meteorito", "Hambre", "Frío"], correctText: "Meteorito" },
+            { era: "Cenozoico", q: "¿Qué animales crecieron más?", opts: ["Reptiles", "Mamíferos", "Peces", "Insectos"], correctText: "Mamíferos" },
+            { era: "Cenozoico", q: "¿Quién apareció al final?", opts: ["Dinosaurios", "Ser Humano", "Megalo dón", "Trilobite"], correctText: "Ser Humano" },
+            { era: "Cenozoico", q: "¿Qué clima marcó esta era?", opts: ["Calor extremo", "Era del Hielo", "Lluvia eterna", "Sin viento"], correctText: "Era del Hielo" },
+            { era: "Geología", q: "¿Qué son los restos antiguos?", opts: ["Basura", "Fósiles", "Piedras", "Joyas"], correctText: "Fósiles" },
+            { era: "Geología", q: "¿Dónde se guardan los fósiles?", opts: ["Nubes", "Rocas", "Árboles", "Mar profundo"], correctText: "Rocas" },
+            { era: "Geología", q: "¿Cómo se llama la ciencia?", opts: ["Biología", "Paleontología", "Física", "Química"], correctText: "Paleontología" }
+        ];
+
+        document.getElementById('btn-start').onclick = registerUser;
+
+        function registerUser() {
+            const name = document.getElementById('user-name').value;
+            const lastname = document.getElementById('user-lastname').value;
+            if(!name || !lastname) return;
+
+            startAdventureMusic();
+
+            document.getElementById('nav-user').innerText = name;
+            document.getElementById('screen-auth').classList.add('hidden');
+            document.getElementById('game-main').classList.remove('hidden');
+            
+            score = 0;
+            currentQuestionIndex = 0;
+            randomizedQuestions = [...questionsPool].sort(() => Math.random() - 0.5);
+            
+            updateScoreDisplay();
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const data = randomizedQuestions[currentQuestionIndex];
+            document.getElementById('current-era-title').innerText = data.era;
+            document.getElementById('progress-text').innerText = `${currentQuestionIndex + 1}/${randomizedQuestions.length}`;
+            document.getElementById('game-progress').style.width = `${((currentQuestionIndex) / randomizedQuestions.length) * 100}%`;
+            document.getElementById('question-text').innerText = data.q;
+            
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+            [...data.opts].sort(() => Math.random() - 0.5).forEach((opt) => {
+                const btn = document.createElement('button');
+                btn.className = "option-btn";
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(opt, data.correctText);
+                grid.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selected, correct) {
+            if(selected === correct) {
+                score += 100;
+                sfxCorrect.currentTime = 0;
+                sfxCorrect.play();
+                updateScoreDisplay();
+                showFeedback(true);
+            } else {
+                sfxWrong.currentTime = 0;
+                sfxWrong.play();
+                showFeedback(false);
+            }
+        }
+
+        function showFeedback(isCorrect) {
+            const overlay = document.getElementById('fullscreen-feedback');
+            const icon = document.getElementById('feedback-icon');
+            const title = document.getElementById('feedback-title');
+            
+            overlay.style.backgroundColor = isCorrect ? "var(--correct-green)" : "var(--incorrect-red)";
+            icon.innerText = isCorrect ? "🤠" : "🐍"; 
+            title.innerText = isCorrect ? "¡HALLAZGO!" : "¡PELIGRO!";
+            
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
+                currentQuestionIndex++;
+                if(currentQuestionIndex < randomizedQuestions.length) renderQuestion();
+                else completeGame();
+            }, 850);
+        }
+
+        function completeGame() {
+            document.getElementById('game-progress').style.width = "100%";
+            document.getElementById('final-score-value').innerText = score;
+            document.getElementById('victory-modal').classList.remove('hidden');
+            document.getElementById('victory-modal').classList.add('flex');
+        }
+
+        window.repeatSurvey = () => location.reload();
+        function updateScoreDisplay() { document.getElementById('score-display').innerText = score; }
+    </script>
+</body>
+</html>
